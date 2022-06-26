@@ -1,11 +1,6 @@
-#Setup brew for macOS
-switch (uname)
-    case Darwin
-        eval ("/opt/homebrew/bin/brew" shellenv)
-end
-
-# Sourced from Garuda Linux's fish config skeleton.
-# Really nice defaults.
+# Atlassian setup
+# https://www.atlassian.com/git/tutorials/dotfiles
+# Config file derived from https://gitlab.com/garuda-linux/themes-and-settings/settings/garuda-fish-config/-/blob/master/config.fish
 
 set fish_greeting
 set -x MANPAGER "sh -c 'col -bx | bat -l man -p'"
@@ -13,6 +8,32 @@ set -x MANPAGER "sh -c 'col -bx | bat -l man -p'"
 # Set settings for https://github.com/franciscolourenco/done
 set -U __done_min_cmd_duration 10000
 set -U __done_notification_urgency_level low
+
+## Environment setup
+# Apply .profile: use this to put fish compatible .profile stuff in
+if test -f ~/.fish_profile
+  source ~/.fish_profile
+end
+
+# Add ~/.local/bin to PATH
+if test -d ~/.local/bin
+    if not contains -- ~/.local/bin $PATH
+        set -p PATH ~/.local/bin
+    end
+end
+
+# Add depot_tools to PATH
+if test -d ~/Applications/depot_tools
+    if not contains -- ~/Applications/depot_tools $PATH
+        set -p PATH ~/Applications/depot_tools
+    end
+end
+
+# Add homebrew to PATH
+switch (uname)
+    case Darwin
+        eval ("/opt/homebrew/bin/brew" shellenv)
+end
 
 #Starship prompt
 if status is-interactive
@@ -22,6 +43,62 @@ if status is-interactive
              source ("/usr/bin/starship" init fish --print-full-init | psub)
         case Darwin
              source ("/opt/homebrew/bin/starship" init fish --print-full-init | psub)
+    end
+end
+
+## Advanced command-not-found hook
+switch (uname)
+    case Linux
+        source /usr/share/doc/find-the-command/ftc.fish
+end
+
+## Functions
+# Functions needed for !! and !$ https://github.com/oh-my-fish/plugin-bang-bang
+function __history_previous_command
+  switch (commandline -t)
+  case "!"
+    commandline -t $history[1]; commandline -f repaint
+  case "*"
+    commandline -i !
+  end
+end
+
+function __history_previous_command_arguments
+  switch (commandline -t)
+  case "!"
+    commandline -t ""
+    commandline -f history-token-search-backward
+  case "*"
+    commandline -i '$'
+  end
+end
+
+if [ "$fish_key_bindings" = fish_vi_key_bindings ];
+  bind -Minsert ! __history_previous_command
+  bind -Minsert '$' __history_previous_command_arguments
+else
+  bind ! __history_previous_command
+  bind '$' __history_previous_command_arguments
+end
+
+# Fish command history
+function history
+    builtin history --show-time='%F %T '
+end
+
+function backup --argument filename
+    cp $filename $filename.bak
+end
+
+# Copy DIR1 DIR2
+function copy
+    set count (count $argv | tr -d \n)
+    if test "$count" = 2; and test -d "$argv[1]"
+	set from (echo $argv[1] | trim-right /)
+	set to (echo $argv[2])
+        command cp -r $from $to
+    else
+        command cp $argv
     end
 end
 
@@ -51,10 +128,6 @@ function git_personal
     git config --local user.email "c.stars@icloud.com"
 end
 
-# Setting PATH for Python 3.10
-# The original version is saved in /Users/chloe/.config/fish/config.fish.pysave
-# set -x PATH "/Library/Frameworks/Python.framework/Versions/3.10/bin" "$PATH"
-
 # Tracked dotfiles setup
 alias config='git --git-dir=$HOME/.cfg/ --work-tree=$HOME'
 
@@ -71,4 +144,15 @@ fish_add_path $TALISMAN_HOME
 fish_add_path $HOME/.cargo/bin
 
 # Provide feedback about setup on Talisman
-alias talisman talisman_darwin_arm64
+switch (uname)
+    case Darwin
+        alias talisman talisman_darwin_arm64
+    case Linux
+        alias talisman talisman_linux_amd64
+end
+
+# iTerm2 tools setup
+switch (uname)
+    case Darwin
+        test -e {$HOME}/.iterm2_shell_integration.fish ; and source {$HOME}/.iterm2_shell_integration.fish
+end
